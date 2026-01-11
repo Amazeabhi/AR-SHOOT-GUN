@@ -12,8 +12,10 @@ interface HandData {
   aimPosition: { x: number; y: number } | null;
 }
 
-export const useHandTracking = () => {
+export const useHandTracking = (enabled: boolean = true) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const handsRef = useRef<Hands | null>(null);
+  const cameraRef = useRef<Camera | null>(null);
   const [handData, setHandData] = useState<HandData>({
     indexTip: null,
     thumbTip: null,
@@ -27,6 +29,7 @@ export const useHandTracking = () => {
   const [error, setError] = useState<string | null>(null);
   const previousThumbDistance = useRef<number>(0);
   const shootCooldown = useRef<boolean>(false);
+  const isInitialized = useRef<boolean>(false);
 
   const onResults = useCallback((results: Results) => {
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -100,7 +103,35 @@ export const useHandTracking = () => {
     }
   }, []);
 
+  const stopCamera = useCallback(() => {
+    if (cameraRef.current) {
+      cameraRef.current.stop();
+    }
+    if (videoRef.current) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      videoRef.current.remove();
+      videoRef.current = null;
+    }
+    handsRef.current = null;
+    cameraRef.current = null;
+    isInitialized.current = false;
+    setHandData({
+      indexTip: null,
+      thumbTip: null,
+      indexBase: null,
+      thumbBase: null,
+      isGunGesture: false,
+      isShooting: false,
+      aimPosition: null,
+    });
+  }, []);
+
   const initializeHandTracking = useCallback(async () => {
+    if (isInitialized.current) return;
+    
     try {
       const video = document.createElement('video');
       video.style.display = 'none';
@@ -112,6 +143,7 @@ export const useHandTracking = () => {
           return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
         },
       });
+      handsRef.current = hands;
 
       hands.setOptions({
         maxNumHands: 1,
@@ -124,13 +156,17 @@ export const useHandTracking = () => {
 
       const camera = new Camera(video, {
         onFrame: async () => {
-          await hands.send({ image: video });
+          if (handsRef.current) {
+            await handsRef.current.send({ image: video });
+          }
         },
         width: 640,
         height: 480,
       });
+      cameraRef.current = camera;
 
       await camera.start();
+      isInitialized.current = true;
       setIsLoading(false);
     } catch (err) {
       console.error('Hand tracking error:', err);
@@ -140,18 +176,17 @@ export const useHandTracking = () => {
   }, [onResults]);
 
   useEffect(() => {
-    initializeHandTracking();
+    if (enabled) {
+      initializeHandTracking();
+    } else {
+      stopCamera();
+      setIsLoading(false);
+    }
 
     return () => {
-      if (videoRef.current) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-        videoRef.current.remove();
-      }
+      stopCamera();
     };
-  }, [initializeHandTracking]);
+  }, [enabled, initializeHandTracking, stopCamera]);
 
   return { handData, isLoading, error };
 };
