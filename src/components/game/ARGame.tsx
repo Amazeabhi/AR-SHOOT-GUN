@@ -4,6 +4,7 @@ import { GameScene } from './GameScene';
 import { HUD } from './HUD';
 import { StartScreen } from './StartScreen';
 import { GameOverScreen } from './GameOverScreen';
+import { CameraToggle } from './CameraToggle';
 
 const GAME_DURATION = 60; // seconds
 
@@ -14,7 +15,11 @@ interface ScoreEntry {
 }
 
 export function ARGame() {
-  const { handData, isLoading, error } = useHandTracking();
+  const [cameraEnabled, setCameraEnabled] = useState(() => {
+    const saved = localStorage.getItem('ar-camera-enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const { handData, isLoading, error } = useHandTracking(cameraEnabled);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover'>('start');
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -33,6 +38,14 @@ export function ARGame() {
   const [lastHitTime, setLastHitTime] = useState(0);
 
   const accuracy = shots > 0 ? (hits / shots) * 100 : 100;
+
+  const toggleCamera = useCallback(() => {
+    setCameraEnabled(prev => {
+      const newValue = !prev;
+      localStorage.setItem('ar-camera-enabled', String(newValue));
+      return newValue;
+    });
+  }, []);
 
   // Game timer
   useEffect(() => {
@@ -144,6 +157,8 @@ export function ARGame() {
           error={error}
           isGunGesture={handData.isGunGesture}
           scoreHistory={scoreHistory}
+          cameraEnabled={cameraEnabled}
+          onCameraToggle={toggleCamera}
         />
       )}
 

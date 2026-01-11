@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Hand, Target, Crosshair, Trophy } from 'lucide-react';
+import { CameraToggle } from './CameraToggle';
 
 interface ScoreEntry {
   score: number;
@@ -13,9 +14,11 @@ interface StartScreenProps {
   error: string | null;
   isGunGesture: boolean;
   scoreHistory: ScoreEntry[];
+  cameraEnabled: boolean;
+  onCameraToggle: () => void;
 }
 
-export function StartScreen({ onStart, isLoading, error, isGunGesture, scoreHistory }: StartScreenProps) {
+export function StartScreen({ onStart, isLoading, error, isGunGesture, scoreHistory, cameraEnabled, onCameraToggle }: StartScreenProps) {
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center">
       {/* Background overlay */}
@@ -56,8 +59,18 @@ export function StartScreen({ onStart, isLoading, error, isGunGesture, scoreHist
           </p>
         </motion.div>
 
+        {/* Camera Toggle */}
+        <motion.div
+          className="flex justify-center mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <CameraToggle cameraEnabled={cameraEnabled} onToggle={onCameraToggle} />
+        </motion.div>
+
         {/* Loading/Error State */}
-        {isLoading && (
+        {cameraEnabled && isLoading && (
           <motion.div
             className="mb-8"
             initial={{ opacity: 0 }}
@@ -74,7 +87,7 @@ export function StartScreen({ onStart, isLoading, error, isGunGesture, scoreHist
           </motion.div>
         )}
 
-        {error && (
+        {cameraEnabled && error && (
           <motion.div
             className="mb-8 p-4 cyber-border bg-destructive/10 rounded-lg"
             initial={{ opacity: 0 }}
@@ -82,6 +95,16 @@ export function StartScreen({ onStart, isLoading, error, isGunGesture, scoreHist
           >
             <p className="text-destructive font-body">{error}</p>
             <p className="text-sm text-muted-foreground mt-2">Don't worry! You can still play with mouse clicks.</p>
+          </motion.div>
+        )}
+
+        {!cameraEnabled && (
+          <motion.div
+            className="mb-8 p-4 cyber-border bg-muted/30 rounded-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <p className="text-muted-foreground font-body">📱 Camera disabled - Click targets to shoot!</p>
           </motion.div>
         )}
 
