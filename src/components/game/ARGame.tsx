@@ -7,6 +7,12 @@ import { GameOverScreen } from './GameOverScreen';
 
 const GAME_DURATION = 60; // seconds
 
+interface ScoreEntry {
+  score: number;
+  date: string;
+  accuracy: number;
+}
+
 export function ARGame() {
   const { handData, isLoading, error } = useHandTracking();
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover'>('start');
@@ -18,6 +24,10 @@ export function ARGame() {
   const [highScore, setHighScore] = useState(() => {
     const saved = localStorage.getItem('handblaster-highscore');
     return saved ? parseInt(saved, 10) : 0;
+  });
+  const [scoreHistory, setScoreHistory] = useState<ScoreEntry[]>(() => {
+    const saved = localStorage.getItem('handblaster-history');
+    return saved ? JSON.parse(saved) : [];
   });
   const [isNewHighScore, setIsNewHighScore] = useState(false);
   const [lastHitTime, setLastHitTime] = useState(0);
@@ -41,14 +51,31 @@ export function ARGame() {
     return () => clearInterval(timer);
   }, [gameState]);
 
-  // Check for new high score
+  // Save score when game ends
   useEffect(() => {
-    if (gameState === 'gameover' && score > highScore) {
-      setHighScore(score);
-      setIsNewHighScore(true);
-      localStorage.setItem('handblaster-highscore', score.toString());
+    if (gameState === 'gameover' && score > 0) {
+      // Check for new high score
+      if (score > highScore) {
+        setHighScore(score);
+        setIsNewHighScore(true);
+        localStorage.setItem('handblaster-highscore', score.toString());
+      }
+
+      // Add to history
+      const newEntry: ScoreEntry = {
+        score,
+        accuracy: shots > 0 ? (hits / shots) * 100 : 0,
+        date: new Date().toLocaleDateString(),
+      };
+      
+      const newHistory = [newEntry, ...scoreHistory]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10); // Keep top 10
+      
+      setScoreHistory(newHistory);
+      localStorage.setItem('handblaster-history', JSON.stringify(newHistory));
     }
-  }, [gameState, score, highScore]);
+  }, [gameState]);
 
   const startGame = useCallback(() => {
     setGameState('playing');
@@ -116,6 +143,7 @@ export function ARGame() {
           isLoading={isLoading}
           error={error}
           isGunGesture={handData.isGunGesture}
+          scoreHistory={scoreHistory}
         />
       )}
 
