@@ -20,6 +20,7 @@ export function ARGame() {
     return saved ? parseInt(saved, 10) : 0;
   });
   const [isNewHighScore, setIsNewHighScore] = useState(false);
+  const [lastHitTime, setLastHitTime] = useState(0);
 
   const accuracy = shots > 0 ? (hits / shots) * 100 : 100;
 
@@ -60,8 +61,11 @@ export function ARGame() {
   }, []);
 
   const handleHit = useCallback((points: number) => {
+    const now = Date.now();
     setHits((prev) => prev + 1);
+    setShots((prev) => prev + 1);
     setCombo((prev) => prev + 1);
+    setLastHitTime(now);
     setScore((prev) => {
       const comboMultiplier = Math.min(combo + 1, 10);
       return prev + points * comboMultiplier;
@@ -72,13 +76,6 @@ export function ARGame() {
     setShots((prev) => prev + 1);
     setCombo(0);
   }, []);
-
-  // Track shots when shooting
-  useEffect(() => {
-    if (handData.isShooting && gameState === 'playing') {
-      setShots((prev) => prev + 1);
-    }
-  }, [handData.isShooting, gameState]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-background">
@@ -107,6 +104,11 @@ export function ARGame() {
         />
       )}
 
+      {/* Hit feedback */}
+      {Date.now() - lastHitTime < 200 && gameState === 'playing' && (
+        <div className="absolute inset-0 pointer-events-none border-4 border-neon-green animate-pulse opacity-50" />
+      )}
+
       {/* Start Screen */}
       {gameState === 'start' && (
         <StartScreen
@@ -130,17 +132,25 @@ export function ARGame() {
       )}
 
       {/* Muzzle flash effect */}
-      {handData.isShooting && gameState === 'playing' && (
-        <div className="absolute inset-0 pointer-events-none">
-          <div
-            className="absolute w-32 h-32 rounded-full animate-ping"
-            style={{
-              left: `${(handData.aimPosition?.x ?? 0.5) * 100}%`,
-              top: `${(handData.aimPosition?.y ?? 0.5) * 100}%`,
-              transform: 'translate(-50%, -50%)',
-              background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)',
-            }}
-          />
+      {handData.isShooting && gameState === 'playing' && handData.aimPosition && (
+        <div 
+          className="absolute pointer-events-none"
+          style={{
+            left: `${handData.aimPosition.x * 100}%`,
+            top: `${handData.aimPosition.y * 100}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <div className="w-24 h-24 rounded-full bg-primary/50 animate-ping" />
+        </div>
+      )}
+
+      {/* Instructions overlay when playing */}
+      {gameState === 'playing' && !handData.isGunGesture && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 cyber-border bg-background/90 px-6 py-3 rounded-lg animate-pulse">
+          <p className="text-sm text-center text-muted-foreground">
+            👆 Point your index finger to aim • Pull thumb to shoot • Or just click targets!
+          </p>
         </div>
       )}
     </div>
